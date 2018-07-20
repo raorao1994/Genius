@@ -1,0 +1,349 @@
+  /*
+     * 创建面积图
+     */
+    function CreateAreaChart(areaData) {
+        var height = 170;
+        var width = 236;
+        var bar = {
+            width: 10,
+            innerColor: '',
+            outColor: ''
+        };
+        var margin = {
+            top: 50,
+            bottom: 15,
+            left: 30,
+            right: 10
+        };
+        var xAxis = {
+            padding: 5,
+            width: 0.2,
+            textStyle: {
+                fontSize: 9,
+                fontFamily: '微软雅黑',
+                color: '#fff',
+                textAlign: 'center'
+            }
+
+        }
+        var yAxis = {
+            padding: 2,
+            width: 0.2,
+            textStyle: {
+                fontSize: 9,
+                fontFamily: '微软雅黑',
+                color: '#fff',
+                textAlign: 'right'
+            }
+        }
+        var title = {
+            fontSize: 12,
+            fontFamily: '微软雅黑',
+            x: width / 2,
+            y: 15,
+            textAlign: 'center',
+            content: '建筑面积统计',
+            color: '#fff'
+        }
+        var CanvasEntity = new window.CanvasUtility();
+        var canvas = document.getElementById('area-chart');
+        var chartHeight = height - margin.top - margin.bottom - xAxis.padding;
+        var valueHeight = 0.95 * chartHeight;
+        canvas.height = height;
+        canvas.width = width;
+        var Container = new CanvasEntity.Container(canvas);
+        var Origin = {
+            y: height - margin.bottom - xAxis.padding,
+            x: margin.left + yAxis.padding
+        }
+        //数据
+        var data = [];
+        var maxValue = 0;
+        for (var i in areaData) {
+            if (areaData[i].PlanArea >= maxValue) {
+                maxValue = areaData[i].PlanArea;
+            }
+            data.push({
+                Name: i,
+                Plane: areaData[i].PlanArea,
+                Total: areaData[i].TotalArea
+            })
+        }
+        var yRate = valueHeight / maxValue;
+        var xValue = width - margin.left - margin.right - yAxis.padding;
+        var xRate = xValue / data.length;
+        data = data.map(function (item, index, arr) {
+            item.Name = item.Name;
+            item.PlaneHeight = (item.Plane * yRate).toFixed(2);
+            item.TotalHeight = (item.Total * yRate).toFixed(2);
+            item.X = (((index + 1) * xRate) - (xRate / 2) + Origin.x).toFixed(2);
+            return item;
+        });
+
+        /* 坐标轴 */
+        var linex = new CanvasEntity.Line(
+            Origin.x,
+            Origin.y + xAxis.width,
+            width - margin.right,
+            Origin.y, xAxis.width, '#fff'
+            );
+
+        var liney = new CanvasEntity.Line(
+            Origin.x - yAxis.width,
+            Origin.y,
+            Origin.x - yAxis.width,
+            margin.top,
+            yAxis.width, '#fff'
+            );
+
+        /* 柱子 */
+        for (var i = 0, item; item = data[i++];) {
+            var y = height - margin.bottom - xAxis.padding;
+            var entityInner = new CanvasEntity.Rect(item.X - bar.width / 2, y - item.PlaneHeight, bar.width, 0, false, "#2CDFCC");
+            var entityOut = new CanvasEntity.Rect(item.X - bar.width / 2, y - item.PlaneHeight, bar.width, item.PlaneHeight, false, "#2CDFCC");
+            entityInner.RealHeight = item.TotalHeight;
+            entityInner.groupId = 'change';
+            var label = new CanvasEntity.Text(item.X, Origin.y + xAxis.textStyle.fontSize + 5, parent.UnderGroundModelTypes[item.Name], xAxis.textStyle.fontFamily, xAxis.textStyle.color, xAxis.textStyle.fontSize, xAxis.textStyle.textAlign);
+            Container.add(label);
+            Container.add(entityOut);
+            Container.add(entityInner);
+        }
+
+        Container.add(linex);
+        Container.add(liney);
+        Container.repaint();
+
+        /* 标题 */
+        with (title) {
+            var titleEntity = new CanvasEntity.Text(x, y, content, fontFamily, color, fontSize, 'center');
+            Container.add(titleEntity);
+        }
+
+        /* y轴刻度 */
+        for (var i = 0; i <= 180; i = i + 30) {
+            var x = Origin.x;
+            var y = Origin.y - (((height - margin.top - margin.bottom - xAxis.padding) / 180) * i);
+            var line = new CanvasEntity.Line(x, y, x - 2, y, 0.2, '#fff');
+            if (i) {
+                var text = new CanvasEntity.Text(
+                    x - 10,
+                    y + (yAxis.textStyle.fontSize),
+                    i,
+                    yAxis.textStyle.fontFamily,
+                    yAxis.textStyle.color,
+                    yAxis.textStyle.fontSize,
+                    yAxis.textStyle.textAlign);
+                Container.add(text);
+            }
+            Container.add(line);
+
+        }
+
+        /* 动画效果 */
+        function ChangeBarHeight() {
+            var entities = Container.getGroup('change');
+            for (var i = 0, item; item = entities[i++];) {
+                var y = Origin.y - item.height;
+                item.y = y;
+                if (item.height >= item.RealHeight) {
+                    item.height = 0;
+                    Container.clear(item.x, item.y, item.width, item.height);
+                }
+                item.height = item.height + 0.2;
+                Container.repaint();
+            }
+            requestAnimationFrame(ChangeBarHeight);
+        }
+        requestAnimationFrame(ChangeBarHeight);
+    }
+
+    /*
+     * 建筑结构
+     */
+    function CreateStructChart(d) {
+        var CanvasEntity = new window.CanvasUtility();
+        var totalCount = 0;
+        for (var j = 0; j < d.length; j++) {
+            totalCount += d[j].Count;
+        }
+        //处理数据
+        var data = d.map(function (item) {
+            return {
+                Name: item.Name,
+                Angle: (item.Count / totalCount) * 360,
+                Count: item.Count,
+                Per: ((item.Count / totalCount) * 100).toFixed(1)
+            }
+        });
+
+        data.sort(function (a, b) {
+            return b.Count - a.Count;
+        });
+
+        var colors = ['#CE842F', '#1FCCC8', '#E5D118'];
+        var width = 225;
+        var height = 170;
+        var Oragin = {
+            x: width / 2,
+            y: height / 2
+        }
+        var title = {
+            fontSize: 12,
+            fontFamily: '微软雅黑',
+            textAlign: 'center',
+            x: Oragin.x,
+            y: 11,
+            content: '建筑结构统计',
+            color: '#fff'
+        };
+        var legend = {
+            fontSize: 9,
+            left: 20,
+            bottom: 15,
+            fontFamily: '微软雅黑',
+            color: '#fff',
+            textAlign: 'center'
+        }
+
+        var rings = {
+            inner: {
+                radius: 23,
+                fontSize: 14,
+                fontFamily: '微软雅黑',
+                color: '#05E8BD',
+                textAlign: 'center',
+                x: Oragin.x,
+                y: Oragin.y,
+                background: '#4A5873'
+            },
+            out: {
+                innerRadius: 27,
+                outRadius: 47,
+                beginAngle: 285
+            }
+        }
+
+        var canvas = document.getElementById('struct-chart');
+        canvas.width = width;
+        canvas.height = height;
+        var Container = new CanvasEntity.Container(canvas);
+        /* 绘制中心圆和设施总数量 */
+        Container.add(new CanvasEntity.Arc(
+            Oragin.x,
+            Oragin.y,
+            rings.inner.radius,
+            0,
+            360,
+            true,
+            true,
+            rings.inner.background));
+
+        Container.add(new CanvasEntity.Text
+            (rings.inner.x,
+            rings.inner.y + (rings.inner.fontSize / 2),
+            totalCount,
+            rings.inner.fontFamily,
+            rings.inner.color,
+            rings.inner.fontSize,
+            rings.inner.textAlign));
+
+        /* 绘制各个设施扇形图 */
+        for (var i = 0, item; item = data[i++];) {
+            var startAngle = rings.out.beginAngle;
+            var endAngle = rings.out.beginAngle + item.Angle;
+
+            var sector = new CanvasEntity.Sector(
+                Oragin.x,
+                Oragin.y,
+                rings.out.innerRadius,
+                rings.out.outRadius,
+                startAngle,
+                endAngle,
+                colors[i - 1]);
+            sector.data = item;
+
+            sector.addListener('mousemove', function (ev) {
+                var target = ev.target;
+                if (!target.In) {
+                    target.innerRadius += 2;
+                    target.outRadius += 2;
+                    target.startAngle += 0.05;
+                    target.endAngle -= 0.05;
+                    requestAnimationFrame(function () {
+                        target.Container.clear();
+                        target.Container.repaint();
+                    })
+
+                    /* 添加标线 */
+                    var p = CanvasEntity.getArcCenter(target, target.x, target.y);
+                    var symbolx = p.x - target.x > 0 ? 1 : -1;
+                    var symboly = p.y - target.y > 0 ? 1 : -1;
+                    var p1 = { x: p.x + symbolx * 10, y: p.y + symboly * 5 };
+                    var p2 = { x: p.x + symbolx * 50, y: p.y + symboly * 5 };
+                    var markerFontSize = 12;
+                    var p3 = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 - markerFontSize / 2 };
+                    var line1 = new CanvasEntity.Line(p.x, p.y, p1.x, p1.y, 1, target.bgColor)
+                    var line2 = new CanvasEntity.Line(p1.x, p1.y, p2.x, p2.y, 1, target.bgColor);
+                    var text = new CanvasEntity.Text(p3.x, p3.y, target.data.Per + '%', '微软雅黑', '#fff', markerFontSize, 'center');
+                    line1.groupId = 'temp';
+                    line2.groupId = 'temp';
+                    text.groupId = 'temp';
+                    target.Container.add(line1);
+                    target.Container.add(line2);
+                    target.Container.add(text);
+                }
+                target.In = true;
+            });
+            sector.addListener('mouseout', function (ev) {
+                var target = ev.target;
+                target.innerRadius -= 2;
+                target.outRadius -= 2;
+                target.startAngle -= 0.05;
+                target.endAngle += 0.05;
+                requestAnimationFrame(function () {
+                    target.Container.remove('temp');
+                    target.Container.clear();
+                    target.Container.repaint();
+                })
+                target.In = false;
+            });
+
+            //扇形上的文字
+
+            var sectorP = CanvasEntity.getArcCenter(sector, Oragin.x, Oragin.y, (rings.out.innerRadius + (rings.out.outRadius - rings.out.innerRadius) / 2));
+            var sectorText = new CanvasEntity.Text(sectorP.x,sectorP.y+3,item.Count,'微软雅黑','#000',10,'center');
+            Container.add(sector);
+            Container.add(sectorText);
+            rings.out.beginAngle = endAngle;
+
+            /* 绘制图例 */
+            for (var k = 0, item; item = data[k++];) {
+                var size = 10;
+                var color = colors[k - 1];
+                var _y = height - legend.bottom;
+                var _x = 30 * (k - 1) + 5 + legend.left;
+                Container.add(new CanvasEntity.Text(
+                    _x + 17,
+                    _y + 9,
+                    item.Name,
+                    legend.fontFamily,
+                    legend.color,
+                    legend.fontSize,
+                    legend.textAlign));
+                Container.add(new CanvasEntity.Rect(_x, _y, size, size, true, color));
+            }
+            Container.add(new CanvasEntity.Text(
+           canvas.width - 45,
+           canvas.height - 20,
+           '单位：个',
+           '微软雅黑',
+           '#fff',
+           10,
+           'center'));
+
+            //标题
+            var titleEntity = new CanvasEntity.Text(title.x, title.y, title.content, title.fontFamily, title.color, title.fontSize, title.textAlign);
+            Container.add(titleEntity);
+            Container.repaint();
+        }
+    }
